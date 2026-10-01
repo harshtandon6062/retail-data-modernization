@@ -1,0 +1,13 @@
+# AWS: lake on S3 (s3a:// is Hadoop's S3 connector). Run on EMR / Glue / Databricks.
+# Needs hadoop-aws on the classpath + IAM role credentials. NOT deployed in this project.
+env: aws
+lake_root: s3a://retailco-lakehouse-prod
+postgres:
+  host: legacy-retail.xxxxxx.ap-south-1.rds.amazonaws.com   # or on-prem via Direct Connect / VPN
+  port: 5432
+  database: legacy_retail
+  user: etl_reader
+  password: ${SECRETS_MANAGER:legacy-retail/etl_reader}       # never in git
+kafka:
+  bootstrap_servers: b-1.retailco-msk.xxxxxx.kafka.ap-south-1.amazonaws.com:9092   # Amazon MSK
+  topic: retail.events

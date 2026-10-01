@@ -1,0 +1,376 @@
+{
+  "generated_at": "2026-10-01T08:52:39",
+  "nodes": [
+    {
+      "name": "bronze.customers",
+      "layer": "bronze",
+      "rows": 2056,
+      "delta_version": 1
+    },
+    {
+      "name": "bronze.order_items",
+      "layer": "bronze",
+      "rows": 120200,
+      "delta_version": 1
+    },
+    {
+      "name": "bronze.orders",
+      "layer": "bronze",
+      "rows": 50650,
+      "delta_version": 1
+    },
+    {
+      "name": "bronze.products",
+      "layer": "bronze",
+      "rows": 210,
+      "delta_version": 1
+    },
+    {
+      "name": "bronze.stores",
+      "layer": "bronze",
+      "rows": 20,
+      "delta_version": 0
+    },
+    {
+      "name": "bronze.supplier_deliveries",
+      "layer": "bronze",
+      "rows": 80,
+      "delta_version": 1
+    },
+    {
+      "name": "bronze.supplier_master",
+      "layer": "bronze",
+      "note": "not a Delta table"
+    },
+    {
+      "name": "exports.powerbi.dim_customer",
+      "layer": "exports"
+    },
+    {
+      "name": "exports.powerbi.dim_date",
+      "layer": "exports"
+    },
+    {
+      "name": "exports.powerbi.dim_product",
+      "layer": "exports"
+    },
+    {
+      "name": "exports.powerbi.dim_store",
+      "layer": "exports"
+    },
+    {
+      "name": "exports.powerbi.fact_sales",
+      "layer": "exports"
+    },
+    {
+      "name": "gold.dim_customer",
+      "layer": "gold",
+      "rows": 2033,
+      "delta_version": 2
+    },
+    {
+      "name": "gold.dim_date",
+      "layer": "gold",
+      "rows": 1035,
+      "delta_version": 1
+    },
+    {
+      "name": "gold.dim_product",
+      "layer": "gold",
+      "rows": 199,
+      "delta_version": 1
+    },
+    {
+      "name": "gold.dim_store",
+      "layer": "gold",
+      "rows": 20,
+      "delta_version": 1
+    },
+    {
+      "name": "gold.fact_sales",
+      "layer": "gold",
+      "rows": 116560,
+      "delta_version": 1
+    },
+    {
+      "name": "gold.v_sales_analyst",
+      "layer": "gold",
+      "rows": 116560
+    },
+    {
+      "name": "landing.suppliers_csv",
+      "layer": "landing"
+    },
+    {
+      "name": "landing.suppliers_json",
+      "layer": "landing"
+    },
+    {
+      "name": "postgres.customers",
+      "layer": "postgres"
+    },
+    {
+      "name": "postgres.order_items",
+      "layer": "postgres"
+    },
+    {
+      "name": "postgres.orders",
+      "layer": "postgres"
+    },
+    {
+      "name": "postgres.products",
+      "layer": "postgres"
+    },
+    {
+      "name": "postgres.stores",
+      "layer": "postgres"
+    },
+    {
+      "name": "quarantine.customers",
+      "layer": "quarantine",
+      "rows": 0
+    },
+    {
+      "name": "quarantine.order_items",
+      "layer": "quarantine",
+      "rows": 3040
+    },
+    {
+      "name": "quarantine.orders",
+      "layer": "quarantine",
+      "rows": 495
+    },
+    {
+      "name": "quarantine.products",
+      "layer": "quarantine",
+      "rows": 1
+    },
+    {
+      "name": "quarantine.stores",
+      "layer": "quarantine",
+      "rows": 0
+    },
+    {
+      "name": "silver.customers",
+      "layer": "silver",
+      "rows": 2010,
+      "delta_version": 1
+    },
+    {
+      "name": "silver.order_items",
+      "layer": "silver",
+      "rows": 116560,
+      "delta_version": 1
+    },
+    {
+      "name": "silver.orders",
+      "layer": "silver",
+      "rows": 49705,
+      "delta_version": 1
+    },
+    {
+      "name": "silver.products",
+      "layer": "silver",
+      "rows": 199,
+      "delta_version": 1
+    },
+    {
+      "name": "silver.stores",
+      "layer": "silver",
+      "rows": 20,
+      "delta_version": 1
+    }
+  ],
+  "edges": [
+    {
+      "from": "postgres.customers",
+      "to": "bronze.customers",
+      "via": "src/ingest_jdbc.py (JDBC, CDC)"
+    },
+    {
+      "from": "postgres.products",
+      "to": "bronze.products",
+      "via": "src/ingest_jdbc.py (JDBC, CDC)"
+    },
+    {
+      "from": "postgres.stores",
+      "to": "bronze.stores",
+      "via": "src/ingest_jdbc.py (JDBC, CDC)"
+    },
+    {
+      "from": "postgres.orders",
+      "to": "bronze.orders",
+      "via": "src/ingest_jdbc.py (JDBC, CDC)"
+    },
+    {
+      "from": "postgres.order_items",
+      "to": "bronze.order_items",
+      "via": "src/ingest_jdbc.py (JDBC, CDC)"
+    },
+    {
+      "from": "landing.suppliers_json",
+      "to": "bronze.supplier_deliveries",
+      "via": "src/register_tables.py (mergeSchema)"
+    },
+    {
+      "from": "landing.suppliers_csv",
+      "to": "bronze.supplier_master",
+      "via": "src/register_tables.py (Hive external table)"
+    },
+    {
+      "from": "bronze.customers",
+      "to": "silver.customers",
+      "via": "src/silver.py"
+    },
+    {
+      "from": "bronze.products",
+      "to": "silver.products",
+      "via": "src/silver.py"
+    },
+    {
+      "from": "bronze.stores",
+      "to": "silver.stores",
+      "via": "src/silver.py"
+    },
+    {
+      "from": "bronze.orders",
+      "to": "silver.orders",
+      "via": "src/silver.py"
+    },
+    {
+      "from": "bronze.order_items",
+      "to": "silver.order_items",
+      "via": "src/silver.py"
+    },
+    {
+      "from": "bronze.customers",
+      "to": "quarantine.customers",
+      "via": "src/silver.py (rejected rows)"
+    },
+    {
+      "from": "bronze.products",
+      "to": "quarantine.products",
+      "via": "src/silver.py (rejected rows)"
+    },
+    {
+      "from": "bronze.stores",
+      "to": "quarantine.stores",
+      "via": "src/silver.py (rejected rows)"
+    },
+    {
+      "from": "bronze.orders",
+      "to": "quarantine.orders",
+      "via": "src/silver.py (rejected rows)"
+    },
+    {
+      "from": "bronze.order_items",
+      "to": "quarantine.order_items",
+      "via": "src/silver.py (rejected rows)"
+    },
+    {
+      "from": "silver.customers",
+      "to": "silver.orders",
+      "via": "src/silver.py (FK check)"
+    },
+    {
+      "from": "silver.stores",
+      "to": "silver.orders",
+      "via": "src/silver.py (FK check)"
+    },
+    {
+      "from": "silver.orders",
+      "to": "silver.order_items",
+      "via": "src/silver.py (FK check)"
+    },
+    {
+      "from": "silver.products",
+      "to": "silver.order_items",
+      "via": "src/silver.py (FK check)"
+    },
+    {
+      "from": "gold.fact_sales",
+      "to": "exports.powerbi.fact_sales",
+      "via": "src/export_bi.py"
+    },
+    {
+      "from": "gold.dim_customer",
+      "to": "exports.powerbi.dim_customer",
+      "via": "src/export_bi.py"
+    },
+    {
+      "from": "gold.dim_product",
+      "to": "exports.powerbi.dim_product",
+      "via": "src/export_bi.py"
+    },
+    {
+      "from": "gold.dim_store",
+      "to": "exports.powerbi.dim_store",
+      "via": "src/export_bi.py"
+    },
+    {
+      "from": "gold.dim_date",
+      "to": "exports.powerbi.dim_date",
+      "via": "src/export_bi.py"
+    },
+    {
+      "from": "silver.orders",
+      "to": "gold.dim_date",
+      "via": "sql/gold/01_dim_date.sql"
+    },
+    {
+      "from": "silver.products",
+      "to": "gold.dim_product",
+      "via": "sql/gold/02_dim_product.sql"
+    },
+    {
+      "from": "silver.stores",
+      "to": "gold.dim_store",
+      "via": "sql/gold/03_dim_store.sql"
+    },
+    {
+      "from": "silver.customers",
+      "to": "gold.dim_customer",
+      "via": "sql/gold/04_dim_customer_scd2.sql"
+    },
+    {
+      "from": "gold.dim_customer",
+      "to": "gold.fact_sales",
+      "via": "sql/gold/05_fact_sales.sql"
+    },
+    {
+      "from": "silver.order_items",
+      "to": "gold.fact_sales",
+      "via": "sql/gold/05_fact_sales.sql"
+    },
+    {
+      "from": "silver.orders",
+      "to": "gold.fact_sales",
+      "via": "sql/gold/05_fact_sales.sql"
+    },
+    {
+      "from": "gold.dim_customer",
+      "to": "gold.v_sales_analyst",
+      "via": "sql/gold/06_v_sales_analyst.sql"
+    },
+    {
+      "from": "gold.dim_date",
+      "to": "gold.v_sales_analyst",
+      "via": "sql/gold/06_v_sales_analyst.sql"
+    },
+    {
+      "from": "gold.dim_product",
+      "to": "gold.v_sales_analyst",
+      "via": "sql/gold/06_v_sales_analyst.sql"
+    },
+    {
+      "from": "gold.dim_store",
+      "to": "gold.v_sales_analyst",
+      "via": "sql/gold/06_v_sales_analyst.sql"
+    },
+    {
+      "from": "gold.fact_sales",
+      "to": "gold.v_sales_analyst",
+      "via": "sql/gold/06_v_sales_analyst.sql"
+    }
+  ]
+}

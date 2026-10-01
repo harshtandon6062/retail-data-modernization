@@ -1,0 +1,13 @@
+# Azure: lake on ADLS Gen2 (abfss://container@account.dfs.core.windows.net).
+# Run on Azure Databricks / Synapse Spark. NOT deployed in this project.
+env: azure
+lake_root: abfss://lakehouse@retailcoadls.dfs.core.windows.net
+postgres:
+  host: legacy-retail.postgres.database.azure.com            # or on-prem via self-hosted IR / ExpressRoute
+  port: 5432
+  database: legacy_retail
+  user: etl_reader
+  password: ${KEY_VAULT:legacy-retail-etl-reader}
+kafka:
+  bootstrap_servers: retailco-ns.servicebus.windows.net:9093  # Event Hubs (Kafka-compatible endpoint)
+  topic: retail.events

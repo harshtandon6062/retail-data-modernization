@@ -1,0 +1,10 @@
+# Pinned so the project behaves the same on every machine.
+pyspark==4.0.1          # Spark 4.0 runs on Java 17/21
+delta-spark==4.0.1      # Delta Lake for Spark 4.0.x (ACID, MERGE, time travel)
+psycopg2-binary==2.9.10 # Python <-> PostgreSQL driver (used by the data generator + validation)
+Faker==37.4.0           # synthetic names/emails/phones
+pandas==2.3.1
+plotly==6.2.0           # self-contained HTML dashboard
+kafka-python==2.2.15    # Kafka producer for the streaming demo
+PyYAML==6.0.2           # config/*.yaml
+pytest==8.4.1

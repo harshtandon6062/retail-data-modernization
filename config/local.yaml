@@ -1,0 +1,13 @@
+# Local laptop/VM run. Only the storage root changes between environments:
+# compare with aws.yaml / azure.yaml / gcp.yaml.
+env: local
+lake_root: lake                 # relative to the repo root
+postgres:
+  host: localhost
+  port: 5432
+  database: legacy_retail
+  user: postgres
+  password: postgres            # demo only - use a secret manager in real life
+kafka:
+  bootstrap_servers: localhost:9092
+  topic: retail.events

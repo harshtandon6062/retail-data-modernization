@@ -1,0 +1,336 @@
+rm -rf lake spark-warehouse metastore_db derby.log .pytest_cache
+rm -f reports/*.md reports/*.json reports/analytics/*.csv exports/powerbi/*.csv dashboard/index.html docs/data_catalog.md
+find . -name __pycache__ -type d -prune -exec rm -rf {} +
+python3 -m venv .venv
+.venv/bin/python -m pip install -q --upgrade pip
+.venv/bin/python -m pip install -q -r requirements.txt
+touch .venv/.installed
+localhost:5432 - accepting connections
+.venv/bin/python -u src/generate_legacy_db.py
+
+======================================================================
+Creating legacy PostgreSQL database 'legacy_retail' (seeded)
+======================================================================
+  customers      2,020 rows
+  products         200 rows
+  stores            20 rows
+  orders        50,400 rows
+  order_items  119,800 rows
+  supplier files written to lake/landing/suppliers/
+======================================================================
+JDBC ingestion -> bronze   mode=FULL   batch=12d88711
+======================================================================
+  table        split col      readers  rows read  watermark(updated_at)
+  customers    customer_id          2      2,020  2023-12-29 10:00:00
+  products     product_id           1        200  2023-12-01 09:00:00
+  stores       store_id             1         20  2023-12-01 09:00:00
+  orders       order_id             4     50,400  2025-12-31 22:02:00
+  order_items  order_item_id        4    119,800  2025-12-31 22:02:00
+  watermarks saved to lake/_state/watermarks.json
+======================================================================
+Registering tables   catalog = hive (embedded Derby metastore at lake/_metastore)
+======================================================================
+  January schema : delivered_on, delivery_id, product_id, qty, supplier_id
+  March schema   : batch_codes, delivered_on, delivery_id, product_id, qty, supplier_id, temperature_c, transport
+  NEW in March   : batch_codes, temperature_c, transport
+  Without mergeSchema the append FAILS: AnalysisException
+  Tables in the metastore:
+    bronze.customers              type=EXTERNAL  format=delta
+    bronze.order_items            type=EXTERNAL  format=delta
+    bronze.orders                 type=EXTERNAL  format=delta
+    bronze.products               type=EXTERNAL  format=delta
+    bronze.stores                 type=EXTERNAL  format=delta
+    bronze.supplier_deliveries    type=EXTERNAL  format=delta
+    bronze.supplier_master        type=EXTERNAL  format=hive
+  Schema-on-read query over raw CSV (HiveQL external table):
++-----------+------------------------+-----------+------+
+|supplier_id|supplier_name           |city       |rating|
++-----------+------------------------+-----------+------+
+|1          |Prestige Distributors 1 |Mumbai     |4.9   |
+|10         |Reliance Distributors 10|Hyderabad  |4.8   |
+|13         |Tata Distributors 13    |Bhubaneswar|4.6   |
++-----------+------------------------+-----------+------+
+  Merged supplier schema (nested struct + array after drift):
+root
+ |-- delivered_on: string (nullable = true)
+ |-- delivery_id: string (nullable = true)
+ |-- product_id: long (nullable = true)
+ |-- qty: long (nullable = true)
+ |-- supplier_id: long (nullable = true)
+ |-- batch_codes: array (nullable = true)
+ |    |-- element: string (containsNull = true)
+ |-- temperature_c: double (nullable = true)
+ |-- transport: struct (nullable = true)
+ |    |-- mode: string (nullable = true)
+ |    |-- vehicle_no: string (nullable = true)
++-------+----------+-------------------+-----------+
+|  month|deliveries|with_transport_info|batch_codes|
++-------+----------+-------------------+-----------+
+|2025-01|        40|                  0|          0|
+|2025-03|        40|                 40|         83|
++-------+----------+-------------------+-----------+
+======================================================================
+Silver: dedupe + standardise + mask PII + quarantine
+======================================================================
+  customers    bronze=  2,020  -dups/old versions=   20  -> silver=  2,000  quarantine=   0  (17s)
+  products     bronze=    200  -dups/old versions=    0  -> silver=    199  quarantine=   1  (5s)
+  stores       bronze=     20  -dups/old versions=    0  -> silver=     20  quarantine=   0  (5s)
+  orders       bronze= 50,400  -dups/old versions=  400  -> silver= 49,505  quarantine= 495  (8s)
+  order_items  bronze=119,800  -dups/old versions=  600  -> silver=116,163  quarantine=3,037  (7s)
+  Quarantine reasons:
+    products         1  negative unit_price
+    orders         243  missing customer_id
+    orders         150  unparseable order_date
+    orders         100  order_date in the future
+    orders           2  unparseable order_date; missing customer_id
+    order_items   1193  parent order missing or quarantined
+    order_items   1016  non-positive quantity
+    order_items    807  product missing or quarantined
+    order_items     11  product missing or quarantined; parent order missing or quarantined
+    order_items      7  non-positive quantity; parent order missing or quarantined
+    order_items      3  non-positive quantity; product missing or quarantined
+======================================================================
+Gold: star schema built with Spark SQL (ELT)
+======================================================================
+  ran sql/gold/01_dim_date.sql
+  ran sql/gold/02_dim_product.sql
+  ran sql/gold/03_dim_store.sql
+  ran sql/gold/04_dim_customer_scd2.sql
+  ran sql/gold/05_fact_sales.sql
+  ran sql/gold/06_v_sales_analyst.sql
+  gold.dim_date            731 rows
+  gold.dim_product         199 rows
+  gold.dim_store            20 rows
+  gold.dim_customer      2,000 rows
+  gold.fact_sales      116,163 rows
+  SCD2 dim_customer: current vs historical versions
++----------+--------+---------+
+|is_current|versions|customers|
++----------+--------+---------+
+|      true|    2000|     2000|
++----------+--------+---------+
+.venv/bin/python -u src/generate_legacy_db.py --apply-changes
+
+======================================================================
+Applying new activity to legacy DB (for the CDC demo)
+======================================================================
+  25 customers moved city, 10 price changes, 10 new customers, 200 new orders, 50 status updates  (updated_at = 2026-10-01 08:49:41)
+======================================================================
+JDBC ingestion -> bronze   mode=INCREMENTAL (CDC since last watermark)   batch=11534624
+======================================================================
+  table        split col      readers  rows read  watermark(updated_at)
+  customers    customer_id          2         36  2026-10-01 08:49:41
+  products     product_id           1         10  2026-10-01 08:49:41
+  stores       store_id             1          0  2023-12-01 09:00:00
+  orders       order_id             4        250  2026-10-01 08:49:41
+  order_items  order_item_id        4        400  2026-10-01 08:49:41
+  watermarks saved to lake/_state/watermarks.json
+======================================================================
+Silver: dedupe + standardise + mask PII + quarantine
+======================================================================
+  customers    bronze=  2,056  -dups/old versions=   46  -> silver=  2,010  quarantine=   0  (18s)
+  products     bronze=    210  -dups/old versions=   10  -> silver=    199  quarantine=   1  (7s)
+  stores       bronze=     20  -dups/old versions=    0  -> silver=     20  quarantine=   0  (5s)
+  orders       bronze= 50,650  -dups/old versions=  450  -> silver= 49,705  quarantine= 495  (8s)
+  order_items  bronze=120,200  -dups/old versions=  600  -> silver=116,560  quarantine=3,040  (7s)
+  Quarantine reasons:
+    products         1  negative unit_price
+    orders         243  missing customer_id
+    orders         150  unparseable order_date
+    orders         100  order_date in the future
+    orders           2  unparseable order_date; missing customer_id
+    order_items   1193  parent order missing or quarantined
+    order_items   1016  non-positive quantity
+    order_items    810  product missing or quarantined
+    order_items     11  product missing or quarantined; parent order missing or quarantined
+    order_items      7  non-positive quantity; parent order missing or quarantined
+    order_items      3  non-positive quantity; product missing or quarantined
+======================================================================
+Gold: star schema built with Spark SQL (ELT)
+======================================================================
+  ran sql/gold/01_dim_date.sql
+  ran sql/gold/02_dim_product.sql
+  ran sql/gold/03_dim_store.sql
+  ran sql/gold/04_dim_customer_scd2.sql
+  ran sql/gold/05_fact_sales.sql
+  ran sql/gold/06_v_sales_analyst.sql
+  gold.dim_date          1,035 rows
+  gold.dim_product         199 rows
+  gold.dim_store            20 rows
+  gold.dim_customer      2,033 rows
+  gold.fact_sales      116,560 rows
+  SCD2 dim_customer: current vs historical versions
++----------+--------+---------+
+|is_current|versions|customers|
++----------+--------+---------+
+|      true|    2010|     2010|
+|     false|      23|       23|
++----------+--------+---------+
+======================================================================
+Data quality checks
+======================================================================
+  PASS  Completeness           silver.customers     email_hash not null                      99.00%
+  PASS  Completeness           silver.customers     phone_masked not null                    100.00%
+  PASS  Completeness           silver.orders        order_ts not null                        100.00%
+  PASS  Completeness           gold.fact_sales      customer_sk not null                     100.00%
+  PASS  Uniqueness             silver.customers     customer_id unique                       0 duplicates
+  PASS  Uniqueness             silver.orders        order_id unique                          0 duplicates
+  PASS  Uniqueness             gold.fact_sales      order_item_id unique                     0 duplicates
+  PASS  Uniqueness             gold.dim_customer    customer_sk unique                       0 duplicates
+  PASS  Uniqueness             gold.dim_customer    customer_id unique (is_current)          0 duplicates
+  PASS  Validity               gold.fact_sales      quantity > 0                             0 invalid rows
+  PASS  Validity               gold.fact_sales      0 <= net_amount <= gross_amount          0 invalid rows
+  PASS  Validity               silver.orders        order_ts between 2015 and now            0 invalid rows
+  PASS  Validity               silver.customers     email is a SHA-256 hash (no raw email)   0 invalid rows
+  PASS  Validity               silver.customers     phone masked to last 4 digits            0 invalid rows
+  PASS  Validity               silver.stores        region in allowed list                   0 invalid rows
+  PASS  Validity               silver.stores        city in standard Title Case              0 invalid rows
+  PASS  Validity               gold.dim_customer    SCD2 window is valid                     0 invalid rows
+  PASS  Referential integrity  gold.fact_sales      date_key -> gold.dim_date.date_key       0 orphans
+  PASS  Referential integrity  gold.fact_sales      customer_sk -> gold.dim_customer.customer_sk 0 orphans
+  PASS  Referential integrity  gold.fact_sales      product_key -> gold.dim_product.product_key 0 orphans
+  PASS  Referential integrity  gold.fact_sales      store_key -> gold.dim_store.store_key    0 orphans
+  21/21 checks passed -> reports/data_quality.md
+======================================================================
+Lineage + data catalog
+======================================================================
+  35 nodes, 38 edges -> reports/lineage.json, reports/lineage.md
+  catalog -> docs/data_catalog.md
+  Example: what feeds gold.fact_sales?
+    gold.dim_customer      via sql/gold/05_fact_sales.sql
+    silver.order_items     via sql/gold/05_fact_sales.sql
+    silver.orders          via sql/gold/05_fact_sales.sql
+======================================================================
+Migration validation: PostgreSQL source vs lakehouse
+======================================================================
+  PASS  Row count (source vs bronze)                 customers    src=2,030              lake=2,030
+  PASS  SHA-256 checksum (all columns)               customers    src=115941348188...    lake=115941348188...
+  PASS  Row count (source vs bronze)                 products     src=200                lake=200
+  PASS  SHA-256 checksum (all columns)               products     src=109079613885...    lake=109079613885...
+  PASS  Row count (source vs bronze)                 stores       src=20                 lake=20
+  PASS  SHA-256 checksum (all columns)               stores       src=114356872964...    lake=114356872964...
+  PASS  Row count (source vs bronze)                 orders       src=50,600             lake=50,600
+  PASS  SHA-256 checksum (all columns)               orders       src=290711816860...    lake=290711816860...
+  PASS  Row count (source vs bronze)                 order_items  src=120,200            lake=120,200
+  PASS  SHA-256 checksum (all columns)               order_items  src=692502368888...    lake=692502368888...
+  PASS  Total amount qty x price                     order_items  src=1,089,641,141.17   lake=1,089,641,141.17
+  PASS  Row accounting: keys = silver + quarantine   customers    src=2,010              lake=2,010 + 0
+  PASS  Row accounting: keys = silver + quarantine   products     src=200                lake=199 + 1
+  PASS  Row accounting: keys = silver + quarantine   stores       src=20                 lake=20 + 0
+  PASS  Row accounting: keys = silver + quarantine   orders       src=50,200             lake=49,705 + 495
+  PASS  Row accounting: keys = silver + quarantine   order_items  src=119,600            lake=116,560 + 3,040
+  PASS  Per-month net revenue (all months)           fact_sales   src=1,029,432,964.78   lake=1,029,432,964.78
+  Delta time travel on gold.dim_customer:
+    VERSION AS OF 0: CREATE TABLE           total=0  current=0
+    VERSION AS OF 1: MERGE                  total=2,000  current=2,000
+    VERSION AS OF 2: MERGE                  total=2,033  current=2,010
+  OVERALL PASS (17/17) -> reports/migration_validation.md
+======================================================================
+sql/analytics/01_monthly_revenue_trend.sql
+======================================================================
+year_month     revenue  orders mom_growth_pct
+   2024-01 32869699.63    1555           None
+   2024-02 31622852.70    1492           -3.8
+   2024-03 34219818.90    1597            8.2
+   2024-04 32768031.68    1594           -4.2
+   2024-05 32527157.27    1596           -0.7
+   2024-06 30664137.69    1556           -5.7
+   2024-07 32717267.69    1584            6.7
+   2024-08 31693840.72    1549           -3.1
+  ... 25 rows -> reports/analytics/01_monthly_revenue_trend.csv
+======================================================================
+sql/analytics/02_top_products_per_region.sql
+======================================================================
+region  rnk                    product_name    category     revenue  units
+  EAST    1    Amul Dolorem Electronics 172 Electronics  8084690.89    190
+  EAST    2      Godrej Odit Electronics 49 Electronics  7583025.57    183
+  EAST    3  Boat Doloremque Electronics 50 Electronics  7572031.45    178
+ NORTH    1  Boat Doloremque Electronics 50 Electronics 11941803.91    280
+ NORTH    2      Godrej Odit Electronics 49 Electronics 11003116.06    270
+ NORTH    3    Amul Dolorem Electronics 172 Electronics 10247345.69    240
+ SOUTH    1  Boat Doloremque Electronics 50 Electronics  7749063.24    180
+ SOUTH    2 Bajaj Cupiditate Electronics 86 Electronics  7281969.79    201
+  ... 12 rows -> reports/analytics/02_top_products_per_region.csv
+======================================================================
+sql/analytics/03_customer_retention_cohorts.sql
+======================================================================
+cohort_quarter_start  quarters_since  active_customers  retention_pct
+             2024-01               0              1821          100.0
+             2024-01               1              1661           91.2
+             2024-01               2              1670           91.7
+             2024-01               3              1755           96.4
+             2024-01               4              1701           93.4
+             2024-01               5              1727           94.8
+             2024-01               6              1717           94.3
+             2024-01               7              1783           97.9
+  ... 24 rows -> reports/analytics/03_customer_retention_cohorts.csv
+======================================================================
+sql/analytics/04_store_yoy_growth.sql
+======================================================================
+            store_name region  year     revenue prev_year_revenue yoy_growth_pct
+RetailCo Chandigarh #7  NORTH  2025 25325193.55       19855106.34           27.6
+   RetailCo Mumbai #16   WEST  2025 25133970.57       19772966.08           27.1
+ RetailCo Bengaluru #8  SOUTH  2025 24549886.76       19728575.44           24.4
+     RetailCo Delhi #4  NORTH  2025 25979362.13       21331189.02           21.8
+  RetailCo Kolkata #12   EAST  2025 25245262.36       20810398.20           21.3
+ RetailCo Ahmedabad #3   WEST  2025 24690834.55       21053955.31           17.3
+    RetailCo Jaipur #5  NORTH  2025 24015626.08       20758212.31           15.7
+      RetailCo Pune #2   WEST  2025 25118142.79       21753855.24           15.5
+  ... 40 rows -> reports/analytics/04_store_yoy_growth.csv
+======================================================================
+sql/analytics/05_avg_basket_size.sql
+======================================================================
+region  year  orders  avg_items_per_order avg_order_value
+  EAST  2024    4100                 3.78        21563.60
+  EAST  2025    4751                 3.80        21079.68
+  EAST  2026      50                 3.54        22533.51
+ NORTH  2024    6218                 3.73        20624.14
+ NORTH  2025    6962                 3.84        21399.23
+ NORTH  2026      47                 4.17        30225.33
+ SOUTH  2024    4185                 3.79        20585.75
+ SOUTH  2025    4757                 3.72        20262.72
+  ... 12 rows -> reports/analytics/05_avg_basket_size.csv
+======================================================================
+Export gold star schema for Power BI
+======================================================================
+  exports/powerbi/fact_sales.csv   116,560 rows
+  exports/powerbi/dim_customer.csv     2,033 rows
+  exports/powerbi/dim_product.csv       199 rows
+  exports/powerbi/dim_store.csv        20 rows
+  exports/powerbi/dim_date.csv     1,035 rows
+.venv/bin/python -u src/dashboard.py
+  dashboard written: dashboard/index.html (4.7 MB, works offline)
+    Net revenue                ₹92.44 Cr
+    Orders                     44,387
+    Customers who ordered      2,010
+    Avg order value            ₹20,825
+    YoY growth 2025 vs 2024    +14.2%
+======================================================================
+MapReduce-style job: net sales per region (RDD map + reduceByKey)
+======================================================================
+  input partitions: 2  (Hadoop would start one map task per HDFS block)
+  NORTH  INR   278,642,926.02
+  WEST   INR   272,688,994.73
+  EAST   INR   189,686,986.74
+  SOUTH  INR   183,340,832.07
+  Lineage of the RDD (Spark's DAG of the job):
+    (2) PythonRDD[17] at collect at /home/user/retail-data-modernization/src/mapreduce_sales_by_region.py:45 []
+     |  MapPartitionsRDD[16] at mapPartitions at PythonRDD.scala:168 []
+     |  ShuffledRDD[15] at partitionBy at NativeMethodAccessorImpl.java:0 []
+     +-(2) PairwiseRDD[14] at sortBy at /home/user/retail-data-modernization/src/mapreduce_sales_by_region.py:42 []
+        |  PythonRDD[13] at sortBy at /home/user/retail-data-modernization/src/mapreduce_sales_by_region.py:42 []
+        |  MapPartitionsRDD[10] at mapPartitions at PythonRDD.scala:168 []
+        |  ShuffledRDD[9] at partitionBy at NativeMethodAccessorImpl.java:0 []
+        +-(2) PairwiseRDD[8] at reduceByKey at /home/user/retail-data-modernization/src/mapreduce_sales_by_region.py:41 []
+           |  PythonRDD[7] at reduceByKey at /home/user/retail-data-modernization/src/mapreduce_sales_by_region.py:41 []
+           |  /home/user/retail-data-modernization/exports/powerbi/fact_sales.csv MapPartitionsRDD[5] at textFile at NativeMethodAccessorImpl.java:0 []
+           |  /home/user/retail-data-modernization/exports/powerbi/fact_sales.csv HadoopRDD[4] at textFile at NativeMethodAccessorImpl.java:0 []
+......                                                                   [100%]
+6 passed in 38.74s
+
+*** make all finished: see reports/, docs/data_catalog.md, dashboard/index.html ***
+
+real	9m6.583s
+user	0m25.395s
+sys	0m3.771s
+EXIT=0

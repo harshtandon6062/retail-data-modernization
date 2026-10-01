@@ -1,0 +1,13 @@
+region,rnk,product_name,category,revenue,units
+EAST,1,Amul Dolorem Electronics 172,Electronics,8084690.89,190
+EAST,2,Godrej Odit Electronics 49,Electronics,7583025.57,183
+EAST,3,Boat Doloremque Electronics 50,Electronics,7572031.45,178
+NORTH,1,Boat Doloremque Electronics 50,Electronics,11941803.91,280
+NORTH,2,Godrej Odit Electronics 49,Electronics,11003116.06,270
+NORTH,3,Amul Dolorem Electronics 172,Electronics,10247345.69,240
+SOUTH,1,Boat Doloremque Electronics 50,Electronics,7749063.24,180
+SOUTH,2,Bajaj Cupiditate Electronics 86,Electronics,7281969.79,201
+SOUTH,3,Godrej Odit Electronics 49,Electronics,6829446.28,167
+WEST,1,Amul Dolorem Electronics 172,Electronics,11242211.89,266
+WEST,2,Raymond Eius Electronics 134,Electronics,9657662.47,281
+WEST,3,Godrej Odit Electronics 49,Electronics,9573247.72,234

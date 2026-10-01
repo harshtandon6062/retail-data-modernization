@@ -1,0 +1,12 @@
+# GCP: lake on Cloud Storage (gs:// via the GCS connector). Run on Dataproc. NOT deployed in this project.
+env: gcp
+lake_root: gs://retailco-lakehouse-prod
+postgres:
+  host: 10.20.0.5                                             # Cloud SQL private IP or on-prem via Interconnect
+  port: 5432
+  database: legacy_retail
+  user: etl_reader
+  password: ${SECRET_MANAGER:legacy-retail-etl-reader}
+kafka:
+  bootstrap_servers: bootstrap.retailco.asia-south1.managedkafka.retailco-prj.cloud.goog:9092  # Managed Kafka (or Pub/Sub)
+  topic: retail.events

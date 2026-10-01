@@ -1,0 +1,21 @@
+store_key,store_name,city,region,opened_date
+1,RetailCo Mumbai #1,Mumbai,WEST,2016-02-01
+3,RetailCo Ahmedabad #3,Ahmedabad,WEST,2018-04-01
+7,RetailCo Chandigarh #7,Chandigarh,NORTH,2022-08-01
+11,RetailCo Kochi #11,Kochi,SOUTH,2018-12-01
+12,RetailCo Kolkata #12,Kolkata,EAST,2019-01-01
+13,RetailCo Bhubaneswar #13,Bhubaneswar,EAST,2020-02-01
+14,RetailCo Patna #14,Patna,EAST,2021-03-01
+18,RetailCo Ahmedabad #18,Ahmedabad,WEST,2017-07-01
+6,RetailCo Lucknow #6,Lucknow,NORTH,2021-07-01
+9,RetailCo Chennai #9,Chennai,SOUTH,2016-10-01
+16,RetailCo Mumbai #16,Mumbai,WEST,2015-05-01
+17,RetailCo Pune #17,Pune,WEST,2016-06-01
+15,RetailCo Guwahati #15,Guwahati,EAST,2022-04-01
+19,RetailCo Delhi #19,Delhi,NORTH,2018-08-01
+20,RetailCo Jaipur #20,Jaipur,NORTH,2019-09-01
+5,RetailCo Jaipur #5,Jaipur,NORTH,2020-06-01
+10,RetailCo Hyderabad #10,Hyderabad,SOUTH,2017-11-01
+8,RetailCo Bengaluru #8,Bengaluru,SOUTH,2015-09-01
+2,RetailCo Pune #2,Pune,WEST,2017-03-01
+4,RetailCo Delhi #4,Delhi,NORTH,2019-05-01

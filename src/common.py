@@ -67,6 +67,9 @@ def get_spark(app_name, hive=True, extra_packages=()):
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
         # Small data -> few shuffle partitions (default 200 is for big clusters)
         .config("spark.sql.shuffle.partitions", "8")
+        # Delta rebuilds table state with 50 partitions by default - overkill locally
+        .config("spark.databricks.delta.snapshotPartitions", "2")
+        .config("spark.sql.adaptive.enabled", "true")
         .config("spark.sql.session.timeZone", "UTC")
         .config("spark.driver.memory", "3g")
         .config("spark.ui.showConsoleProgress", "false")

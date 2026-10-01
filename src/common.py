@@ -80,7 +80,9 @@ def get_spark(app_name, hive=True, extra_packages=()):
             "spark.hadoop.javax.jdo.option.ConnectionURL",
             f"jdbc:derby:;databaseName={metastore_dir / 'metastore_db'};create=true",
         )
-        .config("spark.driver.extraJavaOptions", f"-Dderby.system.home={metastore_dir} -Duser.timezone=UTC")
+        .config("spark.driver.extraJavaOptions",
+                f"-Dderby.system.home={metastore_dir} -Duser.timezone=UTC "
+                f"-Dlog4j2.configurationFile=file:{ROOT / 'config' / 'log4j2.properties'}")
     )
     if hive:
         builder = builder.enableHiveSupport()

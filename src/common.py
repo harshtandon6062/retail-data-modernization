@@ -74,7 +74,7 @@ def get_spark(app_name, hive=True, extra_packages=()):
         # Hive metastore backed by an embedded Derby database (a real
         # deployment would point this at MySQL/Postgres or a cloud catalog).
         .config(
-            "javax.jdo.option.ConnectionURL",
+            "spark.hadoop.javax.jdo.option.ConnectionURL",
             f"jdbc:derby:;databaseName={metastore_dir / 'metastore_db'};create=true",
         )
         .config("spark.driver.extraJavaOptions", f"-Dderby.system.home={metastore_dir} -Duser.timezone=UTC")

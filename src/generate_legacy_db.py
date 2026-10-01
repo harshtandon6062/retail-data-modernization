@@ -198,8 +198,10 @@ def write_supplier_files(rnd):
     """Semi-structured files from 2 suppliers. The JSON from March has extra/nested
     fields that the January file does not - classic schema drift."""
     landing = ROOT / "lake" / "landing" / "suppliers"
-    landing.mkdir(parents=True, exist_ok=True)
-    with open(landing / "supplier_master.csv", "w", newline="") as f:
+    # one folder per dataset, because a Hive/Spark table points at a folder
+    (landing / "master").mkdir(parents=True, exist_ok=True)
+    (landing / "deliveries").mkdir(parents=True, exist_ok=True)
+    with open(landing / "master" / "supplier_master.csv", "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["supplier_id", "supplier_name", "city", "gstin", "rating"])
         for i in range(1, 16):
@@ -215,7 +217,7 @@ def write_supplier_files(rnd):
             "batch_codes": [f"B{rnd.randint(100, 999)}" for _ in range(rnd.randint(1, 3))],
             "temperature_c": round(rnd.uniform(2, 30), 1)} for i in range(41, 81)]
     for name, rows in (("deliveries_2025_01.json", jan), ("deliveries_2025_03.json", mar)):
-        with open(landing / name, "w") as f:
+        with open(landing / "deliveries" / name, "w") as f:
             for r in rows:                      # JSON Lines = one JSON object per line
                 f.write(json.dumps(r) + "\n")
 

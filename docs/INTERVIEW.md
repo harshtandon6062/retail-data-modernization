@@ -5,7 +5,7 @@ Contents: [Why I built this](#why-i-built-this-what-to-say) ·
 [Step-by-step: what the project does](#step-by-step-what-exactly-happens) ·
 [60-second pitch](#60-second-pitch) · [3-minute walkthrough](#3-minute-walkthrough-open-these-files-in-order) ·
 [Challenges](#challenges-i-hit-while-building-it-all-real) · [Production changes](#what-id-change-in-production) ·
-[Scope notes](#honest-scope-notes-say-these-before-they-ask) · [Full forms (glossary)](#full-forms-of-every-abbreviation-used)
+[Scope notes](#honest-scope-notes-say-these-before-they-ask) · [Full forms (glossary)](#full-forms-of-every-abbreviation-used) · Detailed build steps: [BUILD_STEPS.md](BUILD_STEPS.md)
 
 ## Why I built this (what to say)
 

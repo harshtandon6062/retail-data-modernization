@@ -147,6 +147,45 @@ Run order = the order of `make all`. Each step says **what it does**, **why**, a
   events) and writes to `lake/bronze/clickstream`, saving its progress (offsets) in a checkpoint.
 - `make scala`: the monthly revenue calculation written in Scala - same numbers as the SQL version.
 
+## Tough question: "Raw PII is still in bronze - so what's the point of hashing it in silver?"
+
+**Short answer to say:**
+> "Good question - masking in silver alone does *not* protect the data; it reduces who can see it. The protection
+> of bronze comes from access control, encryption and retention. Different layers have different audiences:
+> bronze is touched only by the ingestion pipeline and 2-3 platform engineers, while silver and gold are read by
+> hundreds of analysts, dashboards and exports. Hashing in silver means personal data never reaches that wide
+> audience. In my local project bronze isn't locked down because Spark local mode has no users - in production
+> I'd protect it like this..."
+
+**How bronze is protected in production (defence in depth):**
+1. **Least-privilege access** - bronze lives in its own storage container / schema; only the ingestion service
+   account and a small engineering group have read access (Unity Catalog grants, AWS IAM / Lake Formation, Azure RBAC).
+   Analysts get **no** grant on bronze - only on `gold.v_sales_analyst`.
+2. **Encryption** - at rest with keys in Key Vault / KMS (customer-managed keys), and in transit (TLS/SSL on the
+   JDBC connection and storage).
+3. **Network isolation** - private endpoints, no public access to the storage account.
+4. **Audit logging** - every read of bronze is logged and reviewed (who read what, when).
+5. **Retention / storage limitation** (a DPDP Act principle) - raw data is kept only as long as needed for
+   reprocessing (e.g. 30-90 days), then deleted. With Delta you must also run `VACUUM`, otherwise old file
+   versions kept for time travel still contain the PII.
+6. **Right to erasure** - when a customer asks to be deleted: `DELETE` the rows in every layer + `VACUUM`; or
+   "crypto-shredding" (encrypt each customer's PII with their own key and delete the key).
+
+**Even better - don't let raw PII land at all (shift-left):**
+- **Data minimisation**: if no report needs the email, don't extract it from the source (`SELECT` only needed columns).
+- **Mask/encrypt at ingestion**: hash or encrypt PII columns inside the ingestion job *before* writing bronze,
+  or replace them with **tokens** whose mapping lives in a separate secure vault (reversible only by authorised people,
+  e.g. for customer service).
+- **Trade-off**: bronze is then no longer an exact copy of the source, so migration checksums are computed on the
+  masked values, and you can't re-derive anything from raw email later. Many teams accept that trade-off.
+
+**One more improvement I'd make:** a plain SHA-256 of an email can be reversed by guessing (hash a list of known
+emails and compare). In production I'd use a **keyed/salted hash (HMAC-SHA-256)** with the secret key in Key Vault,
+so the hash still works for joins and counting but can't be brute-forced.
+
+**Why hash and not just drop the email?** Because analysts still need to count unique customers and join
+across systems (e.g. match the same customer in the CRM) - the hash keeps that ability without revealing the email.
+
 ## 60-second pitch
 
 > "I built a legacy-to-lakehouse migration for a fictional Indian retail chain, RetailCo. The legacy system is a

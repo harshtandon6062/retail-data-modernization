@@ -3,7 +3,7 @@ SHELL := /bin/bash
 .SHELLFLAGS := -o pipefail -c
 PY := .venv/bin/python
 # Hide Maven/Ivy download chatter that spark.jars.packages prints on every start
-NOISE := ^\s*(::|found |downloading|confs:|\[SUCCESSFUL|-{5}|\|)|artifacts copied|Ivy Default Cache|The jars for the packages|resolving dependencies|loading settings|Picked up JAVA_TOOL|incubator modules|WARN Utils|Server access error|module not found|Setting default log level|To adjust logging level|^\s*$$|^\s*(io|org|com|net|commons-|jakarta|javax)[.a-z0-9-]*\#
+NOISE := ^	|^:: |^\s*$$|Ivy Default Cache|The jars for the packages|loading settings|Picked up JAVA_TOOL|incubator modules|WARN Utils|Setting default log level|To adjust logging level|^\s*(io|org|com|net)\.[a-z0-9.-]+\#
 RUN = $(PY) -u
 QUIET = 2>&1 | grep --line-buffered -vE '$(NOISE)'
 
@@ -78,13 +78,15 @@ stream: kafka-up     ## producer + Spark Structured Streaming consumer (~1 minut
 kafka-down:
 	docker compose down -v
 
-scala:               ## 11. Scala version of the monthly revenue aggregation
-	.venv/lib/python3*/site-packages/pyspark/bin/spark-shell --master "local[*]" \
-	  --packages io.delta:delta-spark_2.13:4.0.1 \
+scala:               ## 11. Scala version of the monthly revenue aggregation (spark-shell bundled with PySpark)
+	@# `spark-shell -i file` is silently ignored by Spark 4's Scala 2.13 REPL when run
+	@# non-interactively, so we feed `:paste file` on stdin instead (same effect).
+	echo ':paste scala/GoldRevenue.scala' | .venv/lib/python3*/site-packages/pyspark/bin/spark-shell \
+	  --master "local[*]" --packages io.delta:delta-spark_2.13:4.0.1 \
 	  --conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension \
 	  --conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog \
-	  --conf spark.driver.extraJavaOptions=-Dlog4j2.configurationFile=file:config/log4j2.properties \
-	  -i scala/GoldRevenue.scala $(QUIET)
+	  --conf spark.ui.showConsoleProgress=false \
+	  --conf spark.driver.extraJavaOptions=-Dlog4j2.configurationFile=file:config/log4j2.properties $(QUIET)
 
 clean:               ## delete everything generated (lake, reports, exports, dashboard)
 	rm -rf lake spark-warehouse metastore_db derby.log .pytest_cache
